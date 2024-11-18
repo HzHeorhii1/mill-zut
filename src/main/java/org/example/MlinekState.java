@@ -1,11 +1,12 @@
 package org.example;
 
 import sac.game.GameState;
+import sac.game.GameStateImpl;
 
+import java.util.ArrayList;
 import java.util.List;
 
-public class MlinekState extends GameState {
-    private static final int PLACE_NUMBER = 18;
+public class MlinekState extends GameStateImpl {
     private final int[][] board;
     private int remainingWhite;
     private int remainingBlack;
@@ -46,13 +47,71 @@ public class MlinekState extends GameState {
     }
 
     private List<GameState> resolveIdk() {
-
+        List<GameState> children = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (board[i][j] == (isMaximizingTurnNow() ? -1 : 1) && !isMlinek(i, j)) {
+                    MlinekState child = new MlinekState(this);
+                    child.board[i][j] = 0;
+                    children.add(child);
+                }
+            }
+        }
+        return children;
     }
 
-//    @Override
-//    public List<GameState> generateChildren() {
-//
-//    }
+    private List<GameState> generateInitialPhaseChildren() {
+        List<GameState> children = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (board[i][j] == 0) {
+                    MlinekState child = new MlinekState(this);
+                    child.board[i][j] = isMaximizingTurnNow() ? 1 : -1;
+                    if (isMaximizingTurnNow()) {
+                        child.whiteToPlace--;
+                    } else {
+                        child.blackToPlace--;
+                    }
+                    children.add(child);
+                }
+            }
+        }
+        return children;
+    }
+
+    private List<GameState> generateMidEndPhaseChildren() {
+        List<GameState> children = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (board[i][j] == (isMaximizingTurnNow() ? 1 : -1)) {
+                    for (int di = -1; di <= 1; di++) {
+                        for (int dj = -1; dj <= 1; dj++) {
+                            if (Math.abs(di) + Math.abs(dj) == 1) {
+                                int ni = (i + di + 3) % 3;
+                                int nj = (j + dj + 8) % 8;
+                                if (board[ni][nj] == 0) {
+                                    MlinekState child = new MlinekState(this);
+                                    child.board[i][j] = 0;
+                                    child.board[ni][nj] = isMaximizingTurnNow() ? 1 : -1;
+                                    children.add(child);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return children;
+    }
+
+    @Override
+    public List<GameState> generateChildren() {
+        if (whiteToPlace > 0 || blackToPlace > 0) {
+            return generateInitialPhaseChildren();
+        } else {
+            return generateMidEndPhaseChildren();
+        }
+    }
 
     @Override
     public boolean isNonWinTerminal() {
@@ -67,8 +126,26 @@ public class MlinekState extends GameState {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
+        sb.append("+--------------+--------------+\n");
+        sb.append("|              |              |\n");
+        sb.append("|    +---------+---------+    |\n");
+        sb.append("|    |         |         |    |\n");
+        sb.append("|    |    +----+----+    |    |\n");
+        sb.append("|    |    |         |    |    |\n");
+        sb.append("+----+----+         +----+----+\n");
+        sb.append("|    |    |         |    |    |\n");
+        sb.append("|    |    +----+----+    |    |\n");
+        sb.append("|    |         |         |    |\n");
+        sb.append("|    +---------+---------+    |\n");
+        sb.append("|              |              |\n");
+        sb.append("+--------------+--------------+\n");
+        //save "+" indexes, add thiss shit to file and read it from file
+
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 8; j++) {
+                if (j == 0) {
+                    sb.append("Layer ").append(i).append(":  ");
+                }
                 sb.append(board[i][j] == 1 ? "W" : board[i][j] == -1 ? "B" : ".");
                 sb.append(" ");
             }
