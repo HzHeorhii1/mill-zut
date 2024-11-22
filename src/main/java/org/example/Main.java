@@ -1,8 +1,8 @@
 package org.example;
 
+import org.example.MorrisState;
 import sac.game.GameSearchAlgorithm;
 import sac.game.GameState;
-import sac.game.GameStateImpl;
 import sac.game.MinMax;
 
 import java.util.List;
@@ -10,65 +10,62 @@ import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        GameState gra = new MlynekState(); // Ініціалізація гри
-        GameSearchAlgorithm alg = new MinMax(); // Використання алгоритму мінімаксу
-        alg.setInitial(gra);
+        GameState game = new MorrisState(); // Ініціалізація гри
+        GameSearchAlgorithm algorithm = new MinMax(); // Використовуємо Minimax як алгоритм пошуку
+        Scanner scanner = new Scanner(System.in); // Для зчитування введення гравця
 
-        Scanner scanner = new Scanner(System.in);
-        String ruch; // Змінна для ходу користувача
+        while (!game.isWinTerminal() && !game.isNonWinTerminal()) {
+            // Виводимо поточний стан гри
+            System.out.println(game);
 
-        while (!gra.isWinTerminal() && !gra.isNonWinTerminal()) {
-            System.out.println("Поточний стан гри:");
-            System.out.println(gra);
+            // Генеруємо можливі дії
+            List<GameState> children = game.generateChildren();
 
-            // Генеруємо всі можливі ходи
-            List<GameState> children = gra.generateChildren();
-
-            // Очікуємо хід користувача
+            // Введення ходу гравцем
+            String move;
             boolean validMove = false;
-            while (!validMove) {
-                System.out.println("Ваш хід. Введіть назву ходу (наприклад, Place at (0,3)):");
-                ruch = scanner.nextLine();
-
+            do {
+                System.out.println("Ваш хід (формат: Place W at (i, j) або Move W from (i, j) to (k, l)):");
+                move = scanner.nextLine();
                 for (GameState child : children) {
-                    if (ruch.equals(child.getMoveName())) {
-                        gra = child;
+                    if (move.equals(child.getMoveName())) {
+                        game = child;
                         validMove = true;
                         break;
                     }
                 }
-
                 if (!validMove) {
-                    System.out.println("Неправильний хід. Спробуйте ще раз.");
+                    System.out.println("Невірний хід. Спробуйте ще раз.");
                 }
-            }
+            } while (!validMove);
 
-            // Перевіряємо, чи гра завершилася
-            if (gra.isWinTerminal() || gra.isNonWinTerminal()) {
+            // Перевірка, чи гра завершена після ходу гравця
+            if (game.isWinTerminal() || game.isNonWinTerminal()) {
                 break;
             }
 
             // Хід комп'ютера
-            children = gra.generateChildren();
-            alg.setInitial(gra);
-            alg.execute(); // Виконуємо обчислення для AI
-            ruch = alg.getFirstBestMove(); // Отримуємо найкращий хід
+            children = game.generateChildren();
+            algorithm.setInitial(game);
+            algorithm.execute();
+            String bestMove = algorithm.getFirstBestMove();
 
+            System.out.println("Хід комп'ютера: " + bestMove);
             for (GameState child : children) {
-                if (ruch.equals(child.getMoveName())) {
-                    gra = child;
-                    System.out.println("Хід комп'ютера: " + ruch);
+                if (bestMove.equals(child.getMoveName())) {
+                    game = child;
                     break;
                 }
             }
         }
 
-        // Кінець гри
+        // Виводимо результат гри
         System.out.println("Гра завершена!");
-        if (gra.isWinTerminal()) {
-            System.out.println("Перемога!");
-        } else if (gra.isNonWinTerminal()) {
-            System.out.println("Нічия!");
+        System.out.println(game);
+        if (game.isWinTerminal()) {
+            System.out.println("Переможець: " + (game.isMaximizingTurnNow() ? "Чорні" : "Білі"));
+        } else {
+            System.out.println("Нічия.");
         }
     }
 }
