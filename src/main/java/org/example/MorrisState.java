@@ -144,8 +144,10 @@ public class MorrisState extends GameStateImpl {
         board[square][pos] = '.';
         if (opponentPlayer == 'W') {
             whitePiecesOnBoard--;
+            whiteRemaining--; // Декрементуємо залишок білих
         } else {
             blackPiecesOnBoard--;
+            blackRemaining--; // Декрементуємо залишок чорних
         }
 
         millFormed = false; // Скидаємо стан млина
