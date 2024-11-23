@@ -202,14 +202,15 @@ public class MorrisState extends GameStateImpl {
             for (int i = 0; i < 3; i++) {
                 for (int j = 0; j < 8; j++) {
                     if (board[i][j] == currentPlayer) {
-                        int[] neighbors = getNeighbors(i, j);
+                        List<int[]> neighbors = getNeighbors(i, j);
 
-                        for (int neighbor : neighbors) {
-                            if (board[i][neighbor] == '.') {
+                        for (int[] neighbor : neighbors) {
+                            int ni = neighbor[0], nj = neighbor[1];
+                            if (board[ni][nj] == '.') {
                                 MorrisState child = new MorrisState(this);
                                 child.board[i][j] = '.';
-                                child.board[i][neighbor] = currentPlayer;
-                                child.setMoveName("Move from " + i + "," + j + " to " + i + "," + neighbor);
+                                child.board[ni][nj] = currentPlayer;
+                                child.setMoveName("Move from (" + i + ", " + j + ") to (" + ni + ", " + nj + ")");
                                 children.add(child);
                             }
                         }
@@ -235,11 +236,22 @@ public class MorrisState extends GameStateImpl {
         return children;
     }
 
-    private int[] getNeighbors(int square, int pos) {
-        // Логіка визначення сусідів для позиції
-        int[] neighbors = { (pos + 1) % 8, (pos + 7) % 8 }; // Зазвичай сусіди на кільці
+    private List<int[]> getNeighbors(int square, int pos) {
+        List<int[]> neighbors = new ArrayList<>();
+
+        // Сусіди на тому ж самому кільці
+        neighbors.add(new int[]{square, (pos + 1) % 8}); // Наступна позиція на кільці
+        neighbors.add(new int[]{square, (pos + 7) % 8}); // Попередня позиція на кільці
+
+        // Сусіди між кільцями
+        if (pos % 2 == 0) { // Позиції 0, 2, 4, 6 мають перехід між кільцями
+            if (square > 0) neighbors.add(new int[]{square - 1, pos}); // Перехід на внутрішнє кільце
+            if (square < 2) neighbors.add(new int[]{square + 1, pos}); // Перехід на зовнішнє кільце
+        }
+
         return neighbors;
     }
+
 
     @Override
     public int hashCode() {
