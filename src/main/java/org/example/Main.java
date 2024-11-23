@@ -1,6 +1,5 @@
 package org.example;
 
-import org.example.MorrisState;
 import sac.game.GameSearchAlgorithm;
 import sac.game.GameState;
 import sac.game.MinMax;
@@ -10,68 +9,59 @@ import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        GameState game = new MorrisState(); // Ініціалізація гри
-        GameSearchAlgorithm algorithm = new MinMax(); // Використовуємо Minimax як алгоритм пошуку
-        Scanner scanner = new Scanner(System.in); // Для зчитування введення гравця
+        MorrisState game = new MorrisState();
+        GameSearchAlgorithm algorithm = new MinMax();
+        Scanner scanner = new Scanner(System.in);
 
-        while (!game.isWinTerminal() && !game.isNonWinTerminal()) {
-            // Виводимо поточний стан гри
+        while (!game.isTerminal()) {
             System.out.println(game);
-
-            // Генеруємо можливі дії
             List<GameState> children = game.generateChildren();
+            if (children.isEmpty()) {
+                System.out.println("no possible moves");
+                break;
+            }
 
-            // Введення ходу гравцем
             String move;
             boolean validMove = false;
             do {
-                System.out.println("Ваш хід (формат: Place W at (i, j) або Move W from (i, j) to (k, l)):");
+                System.out.println("your moe (format: Place W at (i, j) або Move W from (i, j) to (k, l)):");
                 move = scanner.nextLine();
                 for (GameState child : children) {
                     if (move.equals(child.getMoveName())) {
-                        game = child;
+                        game = (MorrisState) child;
                         validMove = true;
                         break;
                     }
                 }
-
-                if (!validMove) {
-                    System.out.println("Невірний хід. Спробуйте ще раз.");
-                }
+                if (!validMove) { System.out.println("lets try aggain"); }
             } while (!validMove);
 
-            // Якщо гравець утворив млин, дозволити видалення фішки
-            if (((MorrisState) game).millFormed) {
+            if (game.millFormed) {
                 boolean validRemove = false;
                 do {
-                    System.out.println("Ви утворили млин! Виберіть фігурку суперника для видалення (формат: i, j):");
+                    System.out.println("you made mill, pick up coords to remove (format: i, j):");
                     String[] coordinates = scanner.nextLine().split(",");
                     if (coordinates.length == 2) {
                         try {
                             int square = Integer.parseInt(coordinates[0].trim());
                             int pos = Integer.parseInt(coordinates[1].trim());
-
                             try {
-                                ((MorrisState) game).removePiece(square, pos);
+                                game.removePiece(square, pos);
                                 validRemove = true;
                             } catch (IllegalArgumentException | IllegalStateException e) {
-                                System.out.println("Помилка: " + e.getMessage());
+                                System.out.println("err: " + e.getMessage());
                             }
                         } catch (NumberFormatException e) {
-                            System.out.println("Невірний формат введення. Спробуйте ще раз.");
+                            System.out.println("bad format");
                         }
                     } else {
-                        System.out.println("Невірний формат введення. Спробуйте ще раз.");
+                        System.out.println("bad format");
                     }
                 } while (!validRemove);
             }
 
-            // Перевірка, чи гра завершена після ходу гравця
-            if (game.isWinTerminal() || game.isNonWinTerminal()) {
-                break;
-            }
+            if (game.isTerminal()) { break; }
 
-            // Хід комп'ютера
             children = game.generateChildren();
             algorithm.setInitial(game);
             algorithm.execute();
@@ -80,24 +70,23 @@ public class Main {
             System.out.println("Хід комп'ютера: " + bestMove);
             for (GameState child : children) {
                 if (bestMove.equals(child.getMoveName())) {
-                    game = child;
+                    game = (MorrisState) child;
 
-                    // Автоматичне видалення фішки гравця, якщо комп'ютер утворив млин
-                    if (((MorrisState) game).millFormed) {
-                        ((MorrisState) game).removeRandomOpponentPiece();
-                    }
+                    if (game.millFormed) { game.removeRandomOpponentPiece(); }
                     break;
                 }
             }
         }
 
-        // Виводимо результат гри
-        System.out.println("Гра завершена!");
+        System.out.println("game over");
         System.out.println(game);
-        if (game.isWinTerminal()) {
-            System.out.println("Переможець: " + (game.isMaximizingTurnNow() ? "Чорні" : "Білі"));
+
+        if (game.whitePiecesOnBoard < 3) {
+            System.out.println("black won lol");
+        } else if (game.blackPiecesOnBoard < 3) {
+            System.out.println("white won");
         } else {
-            System.out.println("Нічия.");
+            System.out.println("friendship won");
         }
     }
 }
