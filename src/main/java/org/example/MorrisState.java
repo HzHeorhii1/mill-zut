@@ -5,8 +5,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-import sac.State;
-import sac.StateFunction;
 import sac.game.GameState;
 import sac.game.GameStateImpl;
 
@@ -18,7 +16,7 @@ public class MorrisState extends GameStateImpl {
     private int blackPiecesOnBoard; // Фішки чорних на дошці
     private boolean flyingPhaseWhite; // Чи можуть білі стрибати
     private boolean flyingPhaseBlack; // Чи можуть чорні стрибати
-    private boolean millFormed; // Чи утворено млин у поточному ході
+    boolean millFormed; // Чи утворено млин у поточному ході
 
     private static final int[][][] MILLS = {
             // Зовнішній квадрат (горизонтальні)
@@ -95,7 +93,6 @@ public class MorrisState extends GameStateImpl {
                 }
             }
             if (inMill) {
-                // Якщо вся лінія належить одному гравцеві
                 for (int[] coord : mill) {
                     if (coord[0] == square && coord[1] == pos) {
                         return true;
@@ -106,7 +103,6 @@ public class MorrisState extends GameStateImpl {
         return false;
     }
 
-    // Встановити фішку на дошку
     public void placePiece(int square, int pos) {
         assert (board[square][pos] == '.');
         char currentPlayer = isMaximizingTurnNow() ? 'W' : 'B';
@@ -131,12 +127,17 @@ public class MorrisState extends GameStateImpl {
         }
     }
 
-
-    // Видалення фішки опонента
     public void removePiece(int square, int pos) {
         char opponentPlayer = isMaximizingTurnNow() ? 'B' : 'W';
 
-        // Якщо можна видаляти тільки фішки поза млинами, перевіряємо цю умову
+        if (square < 0 || square >= 3 || pos < 0 || pos >= 8) {
+            throw new IllegalArgumentException("Invalid coordinates for removal.");
+        }
+
+        if (board[square][pos] != opponentPlayer) {
+            throw new IllegalStateException("Cannot remove a piece that doesn't belong to the opponent.");
+        }
+
         if (isPartOfMill(square, pos, opponentPlayer) && hasNonMillPieces(opponentPlayer)) {
             throw new IllegalStateException("Cannot remove piece from a mill if other pieces are available.");
         }
@@ -144,38 +145,47 @@ public class MorrisState extends GameStateImpl {
         board[square][pos] = '.';
         if (opponentPlayer == 'W') {
             whitePiecesOnBoard--;
-            whiteRemaining--; // Декрементуємо залишок білих
         } else {
             blackPiecesOnBoard--;
-            blackRemaining--; // Декрементуємо залишок чорних
         }
 
-        millFormed = false; // Скидаємо стан млина
+        // Переходить до наступного ходу після видалення
+        setMaximizingTurnNow(!isMaximizingTurnNow());
+        millFormed = false;
+    }
+
+    public void removeRandomOpponentPiece() {
+        char opponentPlayer = isMaximizingTurnNow() ? 'B' : 'W';
+
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (board[i][j] == opponentPlayer) {
+                    // Перевірка: можна видалити тільки фішку, яка не є частиною млина, якщо такі є
+                    if (!isPartOfMill(i, j, opponentPlayer) || !hasNonMillPieces(opponentPlayer)) {
+                        board[i][j] = '.'; // Видалення фішки
+                        if (opponentPlayer == 'W') {
+                            whitePiecesOnBoard--;
+                        } else {
+                            blackPiecesOnBoard--;
+                        }
+                        millFormed = false; // Скидання стану млина
+
+                        // Передача ходу супернику
+                        setMaximizingTurnNow(!isMaximizingTurnNow());
+                        return;
+                    }
+                }
+            }
+        }
     }
 
 
-    // Метод для генерації нащадків
     @Override
     public List<GameState> generateChildren() {
         List<GameState> children = new ArrayList<>();
 
-        if (millFormed) {
-            // Видалення фішки опонента
-            char opponentPlayer = isMaximizingTurnNow() ? 'B' : 'W';
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 8; j++) {
-                    if (board[i][j] == opponentPlayer) {
-                        if (!isPartOfMill(i, j, opponentPlayer) || !hasNonMillPieces(opponentPlayer)) {
-                            MorrisState child = new MorrisState(this);
-                            child.removePiece(i, j);
-                            child.setMoveName("Remove piece at square " + i + " position " + j);
-                            children.add(child);
-                        }
-                    }
-                }
-            }
-        } else if (whiteRemaining > 0 || blackRemaining > 0) {
-            // Стадія виставлення фішок
+        // У фазі розміщення: додаємо можливі дії з розміщення
+        if (whiteRemaining > 0 || blackRemaining > 0) {
             for (int i = 0; i < 3; i++) {
                 for (int j = 0; j < 8; j++) {
                     if (board[i][j] == '.') {
@@ -187,12 +197,13 @@ public class MorrisState extends GameStateImpl {
                 }
             }
         } else {
-            // Стадія руху
+            // Перехід у фазу переміщення
             char currentPlayer = isMaximizingTurnNow() ? 'W' : 'B';
             for (int i = 0; i < 3; i++) {
                 for (int j = 0; j < 8; j++) {
                     if (board[i][j] == currentPlayer) {
-                        int[] neighbors = { (j + 1) % 8, (j + 7) % 8 };
+                        int[] neighbors = getNeighbors(i, j);
+
                         for (int neighbor : neighbors) {
                             if (board[i][neighbor] == '.') {
                                 MorrisState child = new MorrisState(this);
@@ -202,11 +213,32 @@ public class MorrisState extends GameStateImpl {
                                 children.add(child);
                             }
                         }
+
+                        // Фаза "стрибків" (flying phase), коли залишається <= 3 фішки
+                        if ((currentPlayer == 'W' && flyingPhaseWhite) || (currentPlayer == 'B' && flyingPhaseBlack)) {
+                            for (int k = 0; k < 3; k++) {
+                                for (int l = 0; l < 8; l++) {
+                                    if (board[k][l] == '.') {
+                                        MorrisState child = new MorrisState(this);
+                                        child.board[i][j] = '.';
+                                        child.board[k][l] = currentPlayer;
+                                        child.setMoveName("Fly from " + i + "," + j + " to " + k + "," + l);
+                                        children.add(child);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
         return children;
+    }
+
+    private int[] getNeighbors(int square, int pos) {
+        // Логіка визначення сусідів для позиції
+        int[] neighbors = { (pos + 1) % 8, (pos + 7) % 8 }; // Зазвичай сусіди на кільці
+        return neighbors;
     }
 
     @Override

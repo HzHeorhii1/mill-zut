@@ -34,10 +34,37 @@ public class Main {
                         break;
                     }
                 }
+
                 if (!validMove) {
                     System.out.println("Невірний хід. Спробуйте ще раз.");
                 }
             } while (!validMove);
+
+            // Якщо гравець утворив млин, дозволити видалення фішки
+            if (((MorrisState) game).millFormed) {
+                boolean validRemove = false;
+                do {
+                    System.out.println("Ви утворили млин! Виберіть фігурку суперника для видалення (формат: i, j):");
+                    String[] coordinates = scanner.nextLine().split(",");
+                    if (coordinates.length == 2) {
+                        try {
+                            int square = Integer.parseInt(coordinates[0].trim());
+                            int pos = Integer.parseInt(coordinates[1].trim());
+
+                            try {
+                                ((MorrisState) game).removePiece(square, pos);
+                                validRemove = true;
+                            } catch (IllegalArgumentException | IllegalStateException e) {
+                                System.out.println("Помилка: " + e.getMessage());
+                            }
+                        } catch (NumberFormatException e) {
+                            System.out.println("Невірний формат введення. Спробуйте ще раз.");
+                        }
+                    } else {
+                        System.out.println("Невірний формат введення. Спробуйте ще раз.");
+                    }
+                } while (!validRemove);
+            }
 
             // Перевірка, чи гра завершена після ходу гравця
             if (game.isWinTerminal() || game.isNonWinTerminal()) {
@@ -54,6 +81,11 @@ public class Main {
             for (GameState child : children) {
                 if (bestMove.equals(child.getMoveName())) {
                     game = child;
+
+                    // Автоматичне видалення фішки гравця, якщо комп'ютер утворив млин
+                    if (((MorrisState) game).millFormed) {
+                        ((MorrisState) game).removeRandomOpponentPiece();
+                    }
                     break;
                 }
             }
