@@ -4,7 +4,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.IntStream;
 
+import sac.State;
+import sac.StateFunction;
 import sac.game.GameState;
 import sac.game.GameStateImpl;
 
@@ -47,11 +50,9 @@ public class MorrisState extends GameStateImpl {
 
     public MorrisState() {
         board = new char[3][8];
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 8; j++) {
-                board[i][j] = '.';
-            }
-        }
+        IntStream.range(0, 3).forEach(i ->
+                IntStream.range(0, 8).forEach(j -> board[i][j] = '.')
+        );
         whiteRemaining = 9;
         blackRemaining = 9;
         whitePiecesOnBoard = 0;
@@ -149,7 +150,6 @@ public class MorrisState extends GameStateImpl {
                         if (opponentPlayer == 'W') { whitePiecesOnBoard--; }
                         else { blackPiecesOnBoard--; }
                         millFormed = false;
-
                         setMaximizingTurnNow(!isMaximizingTurnNow());
                         return;
                     }
@@ -161,7 +161,6 @@ public class MorrisState extends GameStateImpl {
     @Override
     public List<GameState> generateChildren() {
         List<GameState> children = new ArrayList<>();
-
         // place phase
         if (whiteRemaining > 0 || blackRemaining > 0) {
             for (int i = 0; i < 3; i++) {
@@ -221,11 +220,9 @@ public class MorrisState extends GameStateImpl {
 
     private List<int[]> getNeighbors(int square, int pos) {
         List<int[]> neighbors = new ArrayList<>();
-
         // the same circcle
         neighbors.add(new int[]{square, (pos + 1) % 8}); // position before
         neighbors.add(new int[]{square, (pos + 7) % 8}); // position after
-
         // between circles
         if (true) {
             if (square > 0) neighbors.add(new int[]{square - 1, pos}); // inner
@@ -254,7 +251,6 @@ public class MorrisState extends GameStateImpl {
 
         return false;
     }
-
 
     private boolean hasNonMillPieces(char player) {
         for (int i = 0; i < 3; i++) {
@@ -291,4 +287,40 @@ public class MorrisState extends GameStateImpl {
         sb.append("next s: ").append(isMaximizingTurnNow() ? "White" : "Black").append("\n");
         return sb.toString();
     }
+
+    static {
+        setHFunction(new StateFunction() {
+            @Override
+            public double calculate(State state) {
+                MorrisState morrisState = (MorrisState) state;
+                if (morrisState.isTerminal()) { return morrisState.isMaximizingTurnNow() ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY; }
+                double score = 0.0;
+                score += 10 * (morrisState.whitePiecesOnBoard - morrisState.blackPiecesOnBoard); // pieces on board
+                score += 5 * (morrisState.whiteRemaining - morrisState.blackRemaining); // pieces not on board
+
+                // flying phase
+                if (morrisState.flyingPhaseWhite) score += 15;
+                if (morrisState.flyingPhaseBlack) score -= 15;
+
+                // mill counts
+                for (int[][] mill : MorrisState.MILLS) {
+                    int whiteCount = 0;
+                    int blackCount = 0;
+                    for (int[] position : mill) {
+                        char piece = morrisState.board[position[0]][position[1]];
+                        if (piece == 'W') whiteCount++;
+                        else if (piece == 'B') blackCount++;
+                    }
+                    if (whiteCount == 3) score += 30;
+                    if (blackCount == 3) score -= 30;
+                }
+
+                if (morrisState.isMaximizingTurnNow()) score += 1.0;
+                else score -= 1.0;
+
+                return score;
+            }
+        });
+    }
+
 }

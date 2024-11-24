@@ -12,8 +12,8 @@ public class Main {
         MorrisState game = new MorrisState();
         GameSearchAlgorithm algorithm = new MinMax();
         Scanner scanner = new Scanner(System.in);
-
-        while (!game.isTerminal()) {
+        boolean gameCanNotBeContinued = !game.isTerminal();
+        while (gameCanNotBeContinued) {
             System.out.println(game);
             List<GameState> children = game.generateChildren();
             if (children.isEmpty()) {
@@ -48,7 +48,7 @@ public class Main {
                             try {
                                 game.removePiece(square, pos);
                                 validRemove = true;
-                            } catch (IllegalArgumentException | IllegalStateException e) {
+                            } catch (IllegalStateException e) {
                                 System.out.println("err: " + e.getMessage());
                             }
                         } catch (NumberFormatException e) {
@@ -65,13 +65,15 @@ public class Main {
             children = game.generateChildren();
             algorithm.setInitial(game);
             algorithm.execute();
+            System.out.println("closed-states: " + algorithm.getClosedStatesCount());
+            System.out.println("time-duration[ms]: " + algorithm.getDurationTime());
             String bestMove = algorithm.getFirstBestMove();
 
-            System.out.println("Хід комп'ютера: " + bestMove);
+            System.out.println("computers turn: " + bestMove);
             for (GameState child : children) {
-                if (bestMove.equals(child.getMoveName())) {
+                boolean isMoveTheBEst = bestMove.equals(child.getMoveName());
+                if (isMoveTheBEst) {
                     game = (MorrisState) child;
-
                     if (game.millFormed) { game.removeRandomOpponentPiece(); }
                     break;
                 }
@@ -81,12 +83,8 @@ public class Main {
         System.out.println("game over");
         System.out.println(game);
 
-        if (game.whitePiecesOnBoard < 3) {
-            System.out.println("black won lol");
-        } else if (game.blackPiecesOnBoard < 3) {
-            System.out.println("white won");
-        } else {
-            System.out.println("friendship won");
-        }
+        if (game.whitePiecesOnBoard < 3) { System.out.println("black won lol"); }
+        else if (game.blackPiecesOnBoard < 3) { System.out.println("white won"); }
+        else { System.out.println("friendship won"); }
     }
 }
