@@ -12,15 +12,6 @@ import sac.game.GameState;
 import sac.game.GameStateImpl;
 
 public class MorrisState extends GameStateImpl {
-    private char[][] board;
-    private int whiteRemaining;
-    private int blackRemaining;
-    int whitePiecesOnBoard;
-    int blackPiecesOnBoard;
-    private boolean flyingPhaseWhite;
-    private boolean flyingPhaseBlack;
-    boolean millFormed;
-
     private static final int[][][] MILLS = {
             // 0 horizontal
             {{0, 0}, {0, 1}, {0, 2}},
@@ -48,6 +39,15 @@ public class MorrisState extends GameStateImpl {
             {{0, 7}, {1, 7}, {2, 7}}
     };
 
+    private char[][] board;
+    private int whiteRemaining;
+    private int blackRemaining;
+    int whitePiecesOnBoard;
+    int blackPiecesOnBoard;
+    private boolean flyingPhaseWhite;
+    private boolean flyingPhaseBlack;
+    boolean millFormed;
+
     public MorrisState() {
         board = new char[3][8];
         IntStream.range(0, 3).forEach(i ->
@@ -65,9 +65,7 @@ public class MorrisState extends GameStateImpl {
 
     public MorrisState(MorrisState parent) {
         this.board = new char[3][8];
-        for (int i = 0; i < 3; i++) {
-            System.arraycopy(parent.board[i], 0, this.board[i], 0, 8);
-        }
+        IntStream.range(0, 3).forEach(i -> System.arraycopy(parent.board[i], 0, this.board[i], 0, 8));
         this.whiteRemaining = parent.whiteRemaining;
         this.blackRemaining = parent.blackRemaining;
         this.whitePiecesOnBoard = parent.whitePiecesOnBoard;
@@ -253,39 +251,34 @@ public class MorrisState extends GameStateImpl {
     }
 
     private boolean hasNonMillPieces(char player) {
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 8; j++) {
-                boolean isNotPartOfOurMill = !isPartOfMill(i, j, player);
-                boolean isPieceInCurrentPosition = board[i][j] == player;
-                if (isPieceInCurrentPosition && isNotPartOfOurMill) { return true; }
-            }
-        }
-        return false;
+        return IntStream.range(0, 3)
+                .anyMatch(i -> IntStream.range(0, 8)
+                        .anyMatch(j -> board[i][j] == player && !isPartOfMill(i, j, player)));
     }
+
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("\n");
-        sb.append(board[0][6]).append("--------------").append(board[0][5]).append("--------------").append(board[0][4]).append("  7\n");
-        sb.append("|              |              |\n");
-        sb.append("|    ").append(board[1][6]).append("---------").append(board[1][5]).append("---------").append(board[1][4]).append("    |  6\n");
-        sb.append("|    |         |         |    |\n");
-        sb.append("|    |    ").append(board[2][6]).append("----").append(board[2][5]).append("----").append(board[2][4]).append("    |    |  5\n");
-        sb.append("|    |    |         |    |    |\n");
-        sb.append(board[0][7]).append("----").append(board[1][7]).append("----").append(board[2][7]).append("         ").append(board[2][3]).append("----").append(board[1][3]).append("----").append(board[0][3]).append("  4\n");
-        sb.append("|    |    |         |    |    |\n");
-        sb.append("|    |    ").append(board[2][0]).append("----").append(board[2][1]).append("----").append(board[2][2]).append("    |    |  3\n");
-        sb.append("|    |         |         |    |\n");
-        sb.append("|    ").append(board[1][0]).append("---------").append(board[1][1]).append("---------").append(board[1][2]).append("    |  2\n");
-        sb.append("|              |              |\n");
-        sb.append(board[0][0]).append("--------------").append(board[0][1]).append("--------------").append(board[0][2]).append("  1\n");
-        sb.append("a    b    c    d    e    f    g\n");
-        sb.append("\n");
-        sb.append("white pieces remaining: ").append(whiteRemaining).append(", Black remaining: ").append(blackRemaining).append("\n");
-        sb.append("white pieces on board: ").append(whitePiecesOnBoard).append(", Black on board: ").append(blackPiecesOnBoard).append("\n");
-        sb.append("next s: ").append(isMaximizingTurnNow() ? "White" : "Black").append("\n");
-        return sb.toString();
+        String sb = "\n" +
+                board[0][6] + "--------------" + board[0][5] + "--------------" + board[0][4] + "  7\n" +
+                "|              |              |\n" +
+                "|    " + board[1][6] + "---------" + board[1][5] + "---------" + board[1][4] + "    |  6\n" +
+                "|    |         |         |    |\n" +
+                "|    |    " + board[2][6] + "----" + board[2][5] + "----" + board[2][4] + "    |    |  5\n" +
+                "|    |    |         |    |    |\n" +
+                board[0][7] + "----" + board[1][7] + "----" + board[2][7] + "         " + board[2][3] + "----" + board[1][3] + "----" + board[0][3] + "  4\n" +
+                "|    |    |         |    |    |\n" +
+                "|    |    " + board[2][0] + "----" + board[2][1] + "----" + board[2][2] + "    |    |  3\n" +
+                "|    |         |         |    |\n" +
+                "|    " + board[1][0] + "---------" + board[1][1] + "---------" + board[1][2] + "    |  2\n" +
+                "|              |              |\n" +
+                board[0][0] + "--------------" + board[0][1] + "--------------" + board[0][2] + "  1\n" +
+                "a    b    c    d    e    f    g\n" +
+                "\n" +
+                "white pieces remaining: " + whiteRemaining + ", Black remaining: " + blackRemaining + "\n" +
+                "white pieces on board: " + whitePiecesOnBoard + ", Black on board: " + blackPiecesOnBoard + "\n" +
+                "next s: " + (isMaximizingTurnNow() ? "White" : "Black") + "\n";
+        return sb;
     }
 
     static {
@@ -294,31 +287,32 @@ public class MorrisState extends GameStateImpl {
             public double calculate(State state) {
                 MorrisState morrisState = (MorrisState) state;
                 if (morrisState.isTerminal()) { return morrisState.isMaximizingTurnNow() ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY; }
-                double score = 0.0;
-                score += 10 * (morrisState.whitePiecesOnBoard - morrisState.blackPiecesOnBoard); // pieces on board
-                score += 5 * (morrisState.whiteRemaining - morrisState.blackRemaining); // pieces not on board
+                double statePrice = 0.0;
+                statePrice += 10 * (morrisState.whitePiecesOnBoard - morrisState.blackPiecesOnBoard); // pieces on board
+                statePrice += 5 * (morrisState.whiteRemaining - morrisState.blackRemaining); // pieces not on board
 
                 // flying phase
-                if (morrisState.flyingPhaseWhite) score += 15;
-                if (morrisState.flyingPhaseBlack) score -= 15;
+                if (morrisState.flyingPhaseWhite) statePrice += 15;
+                if (morrisState.flyingPhaseBlack) statePrice -= 15;
 
                 // mill counts
                 for (int[][] mill : MorrisState.MILLS) {
-                    int whiteCount = 0;
-                    int blackCount = 0;
+                    int whitePiecesInMillCount = 0;
+                    int blackPiecesInMillCount = 0;
                     for (int[] position : mill) {
                         char piece = morrisState.board[position[0]][position[1]];
-                        if (piece == 'W') whiteCount++;
-                        else if (piece == 'B') blackCount++;
+                        if (piece == 'W') whitePiecesInMillCount++;
+                        else if (piece == 'B') blackPiecesInMillCount++;
                     }
-                    if (whiteCount == 3) score += 30;
-                    if (blackCount == 3) score -= 30;
+                    // bonus for bulding mills
+                    if (whitePiecesInMillCount == 3) statePrice += 30;
+                    if (blackPiecesInMillCount == 3) statePrice -= 30;
                 }
+                boolean isWhiteTuen = morrisState.isMaximizingTurnNow();
+                if (isWhiteTuen) statePrice += 1.0;
+                else statePrice -= 1.0;
 
-                if (morrisState.isMaximizingTurnNow()) score += 1.0;
-                else score -= 1.0;
-
-                return score;
+                return statePrice;
             }
         });
     }

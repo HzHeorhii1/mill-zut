@@ -2,7 +2,7 @@ Place piece at square 0 position 7
 Place piece at square 0 position 0
 Place piece at square 0 position 6
 1, 7
-Place piece at square 0 position 4
+Place piece at square 0 position 5
 Place piece at square 1 position 6
 Place piece at square 1 position 5
 Place piece at square 1 position 3
