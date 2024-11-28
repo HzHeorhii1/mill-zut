@@ -50,85 +50,73 @@ public class MorrisState extends GameStateImpl {
     }
 
     boolean isPartOfMill(int i, int j) {
-        char player = board[i][j];
-        if (player == '.') {
-            return false;
+        char currentPlayer = board[i][j];
+        if (currentPlayer == '.') {
+            return false; // Puste pole nie może być częścią młynka
         }
 
-        boolean sameCircleMill = false;
-        if (j % 2 == 0) {
-            sameCircleMill =
-                    (board[i][(j + 1) % 8] == player && board[i][(j + 2) % 8] == player) ||
-                            (board[i][(j + 7) % 8] == player && board[i][(j + 6) % 8] == player);
-        } else {
-            sameCircleMill =
-                    (board[i][(j + 1) % 8] == player && board[i][(j + 7) % 8] == player);
+        // Sprawdzanie młynka poziomego na warstwie i
+        boolean horizontalMill = false;
+        if (j % 2 == 0) { // Jeśli pole jest parzyste
+            horizontalMill = board[i][(j + 1) % 8] == currentPlayer && board[i][(j + 2) % 8] == currentPlayer ||
+                    board[i][(j + 7) % 8] == currentPlayer && board[i][(j + 6) % 8] == currentPlayer;
+        } else { // Jeśli pole jest nieparzyste
+            horizontalMill = board[i][(j + 1) % 8] == currentPlayer && board[i][(j + 7) % 8] == currentPlayer;
         }
 
-        boolean betweenCirclesMill = false;
-        if (j % 2 == 0) {
-            betweenCirclesMill =
-                    (board[0][j] == player && board[1][j] == player && board[2][j] == player);
+        // Sprawdzanie młynka pionowego (między warstwami)
+        boolean verticalMill = false;
+        if (j % 2 == 1) { // Tylko nieparzyste pola mogą należeć do młynka pionowego
+            verticalMill = board[(i + 1) % 3][j] == currentPlayer && board[(i + 2) % 3][j] == currentPlayer;
         }
 
-        return sameCircleMill || betweenCirclesMill;
+        return horizontalMill || verticalMill;
     }
+
 
     private List<GameState> solveMill() {
         List<GameState> children = new ArrayList<>();
-        char currentPlayer = isMaximizingTurnNow() ? 'W' : 'B'; // Gracz, który stworzył młynek
-        char opponent = currentPlayer == 'W' ? 'B' : 'W'; // Przeciwnik
+        char opponent = isMaximizingTurnNow() ? 'B' : 'W';
 
-        // Zbieramy wszystkie pionki przeciwnika
-        List<int[]> opponentPieces = new ArrayList<>();
+        List<int[]> removablePieces = new ArrayList<>();
+
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 8; j++) {
                 if (board[i][j] == opponent && !isPartOfMill(i, j)) {
-                    opponentPieces.add(new int[]{i, j}); // Pionki niebędące częścią młynka
+                    removablePieces.add(new int[]{i, j});
                 }
             }
         }
 
-        // Jeśli wszystkie pionki są w młynkach, można usuwać dowolny pionek przeciwnika
-        if (opponentPieces.isEmpty()) {
+        if (removablePieces.isEmpty()) {
             for (int i = 0; i < 3; i++) {
                 for (int j = 0; j < 8; j++) {
                     if (board[i][j] == opponent) {
-                        opponentPieces.add(new int[]{i, j});
+                        removablePieces.add(new int[]{i, j});
                     }
                 }
             }
         }
 
-        // Tworzenie stanów potomnych dla każdego możliwego usunięcia pionka przeciwnika
-        for (int[] piece : opponentPieces) {
-            int x = piece[0];
-            int y = piece[1];
+        for (int[] position : removablePieces) {
+            int x = position[0];
+            int y = position[1];
 
-            // Tworzenie nowego stanu gry
             MorrisState child = new MorrisState(this);
-            child.board[x][y] = '.'; // Usunięcie pionka przeciwnika
+            child.board[x][y] = '.';
 
-            // Aktualizacja liczby pionków przeciwnika na planszy
             if (opponent == 'W') {
                 child.whitePiecesOnBoard--;
             } else {
                 child.blackPiecesOnBoard--;
             }
 
-            // Aktualizacja tury
-            child.millFormed = false; // Młynek już rozwiązany
-            child.setMaximizingTurnNow(!isMaximizingTurnNow());
-
-            // Rejestrujemy ruch
-            child.setMoveName("Remove opponent's piece at (" + x + "," + y + ")");
-
+            child.setMoveName("Remove piece at (" + x + "," + y + ")");
             children.add(child);
         }
 
         return children;
     }
-
 
     @Override
     public List<GameState> generateChildren() {

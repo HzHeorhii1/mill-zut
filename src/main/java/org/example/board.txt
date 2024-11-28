@@ -1,4 +1,4 @@
-Place piece at square 0 position 7
+Place piece at (0,0)
 Place piece at square 0 position 0
 Place piece at square 0 position 6
 1, 7
