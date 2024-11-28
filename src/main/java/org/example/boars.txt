@@ -1,9 +1,224 @@
-private boolean isPartOfMill(int square, int pos, char player) {
-        return Arrays.stream(MILLS)
-                .anyMatch(mill ->
-                        Arrays.stream(mill)
-                                .allMatch(coord -> board[coord[0]][coord[1]] == player) &&
-                                Arrays.stream(mill)
-                                        .anyMatch(coord -> coord[0] == square && coord[1] == pos)
-                );
+package org.example;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.IntStream;
+
+import sac.State;
+import sac.StateFunction;
+import sac.game.GameState;
+import sac.game.GameStateImpl;
+
+public class MorrisState extends GameStateImpl {
+
+
+    char[][] board;
+    private int whiteRemaining;
+    private int blackRemaining;
+    int whitePiecesOnBoard;
+    int blackPiecesOnBoard;
+    private boolean flyingPhaseWhite;
+    private boolean flyingPhaseBlack;
+    boolean millFormed;
+
+    public MorrisState() {
+        board = new char[3][8];
+        IntStream.range(0, 3).forEach(i ->
+                IntStream.range(0, 8).forEach(j -> board[i][j] = '.')
+        );
+        whiteRemaining = 9;
+        blackRemaining = 9;
+        whitePiecesOnBoard = 0;
+        blackPiecesOnBoard = 0;
+        flyingPhaseWhite = false;
+        flyingPhaseBlack = false;
+        millFormed = false;
+        setMaximizingTurnNow(true);
     }
+
+    public MorrisState(MorrisState parent) {
+        this.board = new char[3][8];
+        IntStream.range(0, 3).forEach(i -> System.arraycopy(parent.board[i], 0, this.board[i], 0, 8));
+        this.whiteRemaining = parent.whiteRemaining;
+        this.blackRemaining = parent.blackRemaining;
+        this.whitePiecesOnBoard = parent.whitePiecesOnBoard;
+        this.blackPiecesOnBoard = parent.blackPiecesOnBoard;
+        this.flyingPhaseWhite = parent.flyingPhaseWhite;
+        this.flyingPhaseBlack = parent.flyingPhaseBlack;
+        this.millFormed = parent.millFormed;
+        this.setMaximizingTurnNow(parent.isMaximizingTurnNow());
+    }
+
+    boolean isPartOfMill(int i, int j) {
+        char player = board[i][j];
+        if (player == '.') {
+            return false; // Поле пусте
+        }
+
+        // Перевірка молодихків в колі
+        boolean sameCircleMill = false;
+        if (j % 2 == 0) { // Парне поле
+            sameCircleMill =
+                    (board[i][(j + 1) % 8] == player && board[i][(j + 2) % 8] == player) || // Два наступні поля
+                            (board[i][(j + 7) % 8] == player && board[i][(j + 6) % 8] == player);  // Два попередні поля
+        } else { // Непарне поле
+            sameCircleMill =
+                    (board[i][(j + 1) % 8] == player && board[i][(j + 7) % 8] == player); // Сусідні поля
+        }
+
+        // Перевірка між колами (тільки для парних)
+        boolean betweenCirclesMill = false;
+        if (j % 2 == 0) {
+            betweenCirclesMill =
+                    (board[0][j] == player && board[1][j] == player && board[2][j] == player); // Одне і те ж поле в різних колах
+        }
+
+        return sameCircleMill || betweenCirclesMill;
+    }
+
+    private List<GameState> solveMill() {
+        List<GameState> children = new ArrayList<>();
+        char opponent = isMaximizingTurnNow() ? 'B' : 'W'; // Przeciwnik białych to czarni i odwrotnie
+
+        // Lista pionków przeciwnika do usunięcia
+        List<int[]> removablePieces = new ArrayList<>();
+
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (board[i][j] == opponent && !isPartOfMill(i, j)) {
+                    // Pionek przeciwnika, który nie jest częścią młynka, można usunąć
+                    removablePieces.add(new int[]{i, j});
+                }
+            }
+        }
+
+        // Jeśli nie ma pionków przeciwnika poza młynkiem, można usunąć dowolny
+        if (removablePieces.isEmpty()) {
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 8; j++) {
+                    if (board[i][j] == opponent) {
+                        removablePieces.add(new int[]{i, j});
+                    }
+                }
+            }
+        }
+
+        // Generowanie stanów dla każdej możliwości usunięcia pionka przeciwnika
+        for (int[] position : removablePieces) {
+            int x = position[0];
+            int y = position[1];
+
+            MorrisState child = new MorrisState(this);
+            child.board[x][y] = '.'; // Usunięcie pionka przeciwnika
+
+            // Aktualizacja liczby pionków na planszy
+            if (opponent == 'W') {
+                child.whitePiecesOnBoard--;
+            } else {
+                child.blackPiecesOnBoard--;
+            }
+
+            // Przełącz tury i ustaw nazwę ruchu
+            child.setMaximizingTurnNow(!isMaximizingTurnNow());
+            child.setMoveName("Remove piece at (" + x + "," + y + ")");
+            children.add(child);
+        }
+
+        return children;
+    }
+
+
+    @Override
+    public List<GameState> generateChildren() {
+        List<GameState> children = new ArrayList<>();
+        char player = isMaximizingTurnNow() ? 'W' : 'B';
+
+        // Перша фаза: розміщення фігур
+        if ((isMaximizingTurnNow() && whiteRemaining > 0) || (!isMaximizingTurnNow() && blackRemaining > 0)) {
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 8; j++) {
+                    if (board[i][j] == '.') {
+                        MorrisState child = new MorrisState(this);
+                        child.board[i][j] = player;
+
+                        if (player == 'W') {
+                            child.whiteRemaining--;
+                            child.whitePiecesOnBoard++;
+                        } else {
+                            child.blackRemaining--;
+                            child.blackPiecesOnBoard++;
+                        }
+
+                        if (child.isPartOfMill(i, j)) {
+                            child.millFormed = true;
+                            children.addAll(child.solveMill());
+                        } else {
+                            child.millFormed = false;
+                            child.setMaximizingTurnNow(!isMaximizingTurnNow());
+                            child.setMoveName("Place at (" + i + "," + j + ")");
+                            children.add(child);
+                        }
+                    }
+                }
+            }
+        }
+
+        return children;
+    }
+
+    @Override
+    public int hashCode() {
+        return Arrays.deepHashCode(board);
+    }
+
+    public boolean isTerminal() {
+        boolean setUpPhaseIsOver = whiteRemaining > 0 || blackRemaining > 0;
+        if (setUpPhaseIsOver) { return false; }
+
+        boolean lessThanThreePieces =whitePiecesOnBoard < 3 || blackPiecesOnBoard < 3;
+        if (lessThanThreePieces) { return true; }
+
+        boolean impossibleTurn = generateChildren().isEmpty();
+        if (impossibleTurn) { return true; }
+
+        return false;
+    }
+
+    @Override
+    public String toString() {
+        String sb = "\n" +
+                board[0][6] + "--------------" + board[0][5] + "--------------" + board[0][4] + "  7\n" +
+                "|              |              |\n" +
+                "|    " + board[1][6] + "---------" + board[1][5] + "---------" + board[1][4] + "    |  6\n" +
+                "|    |         |         |    |\n" +
+                "|    |    " + board[2][6] + "----" + board[2][5] + "----" + board[2][4] + "    |    |  5\n" +
+                "|    |    |         |    |    |\n" +
+                board[0][7] + "----" + board[1][7] + "----" + board[2][7] + "         " + board[2][3] + "----" + board[1][3] + "----" + board[0][3] + "  4\n" +
+                "|    |    |         |    |    |\n" +
+                "|    |    " + board[2][0] + "----" + board[2][1] + "----" + board[2][2] + "    |    |  3\n" +
+                "|    |         |         |    |\n" +
+                "|    " + board[1][0] + "---------" + board[1][1] + "---------" + board[1][2] + "    |  2\n" +
+                "|              |              |\n" +
+                board[0][0] + "--------------" + board[0][1] + "--------------" + board[0][2] + "  1\n" +
+                "a    b    c    d    e    f    g\n" +
+                "\n" +
+                "white pieces remaining: " + whiteRemaining + ", Black remaining: " + blackRemaining + "\n" +
+                "white pieces on board: " + whitePiecesOnBoard + ", Black on board: " + blackPiecesOnBoard + "\n" +
+                "next s: " + (isMaximizingTurnNow() ? "White" : "Black") + "\n";
+        return sb;
+    }
+
+    static {
+        setHFunction(new StateFunction() {
+            @Override
+            public double calculate(State state) {
+                MorrisState nimState = (MorrisState) state;
+                if (nimState.isTerminal())
+                    return Double.POSITIVE_INFINITY * (nimState.isMaximizingTurnNow() ? -1 : 1);
+                return 0.0;
+            }
+        });
+    }
+
+}

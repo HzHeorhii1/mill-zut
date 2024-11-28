@@ -4,87 +4,91 @@ import sac.game.GameSearchAlgorithm;
 import sac.game.GameState;
 import sac.game.MinMax;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Scanner;
+import java.util.Set;
 
 public class Main {
     public static void main(String[] args) {
-        MorrisState game = new MorrisState();
+        GameState game = new MorrisState();
         GameSearchAlgorithm algorithm = new MinMax();
         Scanner scanner = new Scanner(System.in);
-        boolean gameCanNotBeContinued = !game.isTerminal();
-        while (gameCanNotBeContinued) {
+        String move;
+
+        while (!game.isWinTerminal() && !game.isNonWinTerminal()) {
             System.out.println(game);
+            System.out.println("Ваш хід. Введіть ваш рух (наприклад: 'Place piece at square 0 position 1'):");
             List<GameState> children = game.generateChildren();
-            if (children.isEmpty()) {
-                System.out.println("no possible moves");
-                break;
+            boolean validMove = false;
+
+            long[] nodeCounts = new long[6]; // Наприклад, до 10 рівнів
+            expand(game, nodeCounts, 0);
+
+            for (int i = 0; i < nodeCounts.length; i++) {
+                System.out.println("Рівень " + i + ": " + nodeCounts[i] + " вузлів");
             }
 
-            String move;
-            boolean validMove = false;
+
+            // Очікування правильного вводу від користувача
             do {
-                System.out.println("your moe (format: Place W at (i, j) або Move W from (i, j) to (k, l)):");
                 move = scanner.nextLine();
                 for (GameState child : children) {
                     if (move.equals(child.getMoveName())) {
-                        game = (MorrisState) child;
+                        game = child;
                         validMove = true;
                         break;
                     }
                 }
-                if (!validMove) { System.out.println("lets try aggain"); }
+                if (!validMove) {
+                    System.out.println("Недійсний хід. Спробуйте ще раз:");
+                }
             } while (!validMove);
 
-            if (game.millFormed) {
-                boolean validRemove = false;
-                do {
-                    System.out.println("you made mill, pick up coords to remove (format: i, j):");
-                    String[] coordinates = scanner.nextLine().split(",");
-                    if (coordinates.length == 2) {
-                        try {
-                            int square = Integer.parseInt(coordinates[0].trim());
-                            int pos = Integer.parseInt(coordinates[1].trim());
-                            try {
-                                game.removePiece(square, pos);
-                                validRemove = true;
-                            } catch (IllegalStateException e) {
-                                System.out.println("err: " + e.getMessage());
-                            }
-                        } catch (NumberFormatException e) {
-                            System.out.println("bad format");
-                        }
-                    } else {
-                        System.out.println("bad format");
-                    }
-                } while (!validRemove);
+            // Перевірка завершення гри після ходу користувача
+            if (game.isWinTerminal() || game.isNonWinTerminal()) {
+                break;
             }
 
-            if (game.isTerminal()) { break; }
-
+            // Хід комп'ютера
             children = game.generateChildren();
             algorithm.setInitial(game);
             algorithm.execute();
-            System.out.println("closed-states: " + algorithm.getClosedStatesCount());
-            System.out.println("time-duration[ms]: " + algorithm.getDurationTime());
-            String bestMove = algorithm.getFirstBestMove();
+            move = algorithm.getFirstBestMove();
 
-            System.out.println("computers turn: " + bestMove);
             for (GameState child : children) {
-                boolean isMoveTheBEst = bestMove.equals(child.getMoveName());
-                if (isMoveTheBEst) {
-                    game = (MorrisState) child;
-                    if (game.millFormed) { game.removeRandomOpponentPiece(); }
+                if (move.equals(child.getMoveName())) {
+                    game = child;
+                    System.out.println("Комп'ютер зробив хід: " + move);
                     break;
                 }
             }
         }
 
-        System.out.println("game over");
-        System.out.println(game);
-
-        if (game.whitePiecesOnBoard < 3) { System.out.println("black won lol"); }
-        else if (game.blackPiecesOnBoard < 3) { System.out.println("white won"); }
-        else { System.out.println("friendship won"); }
+        // Виведення результату гри
+        if (game.isWinTerminal()) {
+            System.out.println("Переможець: " + (game.isMaximizingTurnNow() ? "Чорні" : "Білі"));
+        } else if (game.isNonWinTerminal()) {
+            System.out.println("Гра завершена в нічию.");
+        }
     }
+
+    /**
+     * Метод для аналізу дерева станів гри.
+     * Підраховує кількість вузлів на кожному рівні дерева до вказаної глибини.
+     *
+     * @param s поточний стан гри
+     * @param v масив для збереження кількості вузлів на кожному рівні
+     * @param d поточний рівень
+     */
+    public static void expand(GameState s, long[] v, int d) {
+        if (d >= v.length)
+            return;
+        for (GameState t : s.generateChildren()) {
+            v[d]++;
+            expand(t, v, d + 1);
+        }
+    }
+
+
 }
