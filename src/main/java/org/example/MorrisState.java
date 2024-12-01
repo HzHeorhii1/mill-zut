@@ -3,7 +3,7 @@ package org.example;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import sac.State;
@@ -23,9 +23,7 @@ public class MorrisState extends GameStateImpl {
 
     public MorrisState() {
         board = new char[3][8];
-        IntStream.range(0, 3).forEach(i ->
-                IntStream.range(0, 8).forEach(j -> board[i][j] = '.')
-        );
+        IntStream.range(0, 3).forEach(i -> IntStream.range(0, 8).forEach(j -> board[i][j] = '.'));
         whiteRemaining = 9;
         blackRemaining = 9;
         whitePiecesOnBoard = 0;
@@ -51,21 +49,27 @@ public class MorrisState extends GameStateImpl {
 
     boolean isPartOfMill(int i, int j) {
         char currentPlayer = board[i][j];
-        if (currentPlayer == '.') {
-            return false;
-        }
-
+        if (currentPlayer == '.') { return false; }
         boolean horizontalMill = false;
-        if (j % 2 == 0) {
-            horizontalMill = (board[i][(j + 1) % 8] == currentPlayer && board[i][(j + 2) % 8] == currentPlayer) ||
-                    (board[i][(j + 7) % 8] == currentPlayer && board[i][(j + 6) % 8] == currentPlayer);
-        } else {
-            horizontalMill = board[i][(j + 1) % 8] == currentPlayer && board[i][(j + 7) % 8] == currentPlayer;
-        }
-
         boolean verticalMill = false;
-        if (j % 2 == 1) {
-            verticalMill = board[(i + 1) % 3][j] == currentPlayer && board[(i + 2) % 3][j] == currentPlayer;
+
+        boolean nextPiece1 = board[i][(j + 1) % 8] == currentPlayer;
+        boolean nextPiece2 = board[i][(j + 2) % 8] == currentPlayer;
+        boolean prevPiece1 = board[i][(j + 7) % 8] == currentPlayer;
+        boolean prevPiece2 = board[i][(j + 6) % 8] == currentPlayer;
+        boolean nextPieceN = nextPiece1 && nextPiece2;
+        boolean prevPieceN = prevPiece1 && prevPiece2;
+
+        boolean chetnij = j % 2 == 0;
+        boolean NeChetnij = j % 2 == 1;
+
+        if (chetnij) { horizontalMill = nextPieceN || prevPieceN; }
+        else { horizontalMill = nextPiece1 && prevPiece1; }
+
+        if (NeChetnij) {
+            boolean upperPiece = board[(i + 1) % 3][j] == currentPlayer;
+            boolean lowerPiece = board[(i + 2) % 3][j] == currentPlayer;
+            verticalMill = upperPiece && lowerPiece;
         }
 
         return horizontalMill || verticalMill;
@@ -88,16 +92,12 @@ public class MorrisState extends GameStateImpl {
         millFormed = isPartOfMill(square, pos);
 
         setMoveName("Place piece at square " + square + " position " + pos);
-        if (!millFormed) {
-            setMaximizingTurnNow(!isMaximizingTurnNow());
-        }
+        if (!millFormed) { setMaximizingTurnNow(!isMaximizingTurnNow()); }
     }
 
     public List<GameState> solveMill() {
         List<GameState> children = new ArrayList<>();
         char opponent = isMaximizingTurnNow() ? 'B' : 'W';
-
-        // Remove opponent's pieces not in a mill
         boolean nonMillPieceExists = hasNonMillPieces(opponent);
 
         for (int i = 0; i < 3; i++) {
@@ -105,27 +105,21 @@ public class MorrisState extends GameStateImpl {
                 if (board[i][j] == opponent && (!isPartOfMill(i, j) || !nonMillPieceExists)) {
                     MorrisState child = new MorrisState(this);
                     child.board[i][j] = '.';
-                    if (opponent == 'W') {
-                        child.whitePiecesOnBoard--;
-                    } else {
-                        child.blackPiecesOnBoard--;
-                    }
-                    // Include the initial move in the move name
+                    if (opponent == 'W') { child.whitePiecesOnBoard--; }
+                    else { child.blackPiecesOnBoard--; }
                     child.setMoveName(this.getMoveName() + "; Remove opponent's piece at (" + i + ", " + j + ")");
                     child.setMaximizingTurnNow(!isMaximizingTurnNow());
-                    child.millFormed = false; // Reset millFormed
+                    child.millFormed = false;
                     children.add(child);
                 }
             }
         }
-
         return children;
     }
 
     @Override
     public List<GameState> generateChildren() {
         List<GameState> children = new ArrayList<>();
-
         // Place phase
         if ((isMaximizingTurnNow() && whiteRemaining > 0) || (!isMaximizingTurnNow() && blackRemaining > 0)) {
             for (int i = 0; i < 3; i++) {
@@ -147,16 +141,12 @@ public class MorrisState extends GameStateImpl {
             // Move phase
             char currentPlayer = isMaximizingTurnNow() ? 'W' : 'B';
             boolean flyingPhase = (currentPlayer == 'W' && flyingPhaseWhite) || (currentPlayer == 'B' && flyingPhaseBlack);
-
             for (int i = 0; i < 3; i++) {
                 for (int j = 0; j < 8; j++) {
                     if (board[i][j] == currentPlayer) {
                         List<int[]> targets;
-                        if (flyingPhase) {
-                            targets = getAllEmptyPositions();
-                        } else {
-                            targets = getNeighbors(i, j);
-                        }
+                        if (flyingPhase) { targets = getAllVoidPositions(); }
+                        else { targets = getNeighbors(i, j); }
                         for (int[] target : targets) {
                             int ni = target[0], nj = target[1];
                             if (board[ni][nj] == '.') {
@@ -164,9 +154,7 @@ public class MorrisState extends GameStateImpl {
                                 child.board[i][j] = '.';
                                 child.board[ni][nj] = currentPlayer;
                                 child.millFormed = child.isPartOfMill(ni, nj);
-
                                 child.setMoveName("Move from (" + i + ", " + j + ") to (" + ni + ", " + nj + ")");
-
                                 if (child.millFormed) {
                                     List<GameState> millChildren = child.solveMill();
                                     children.addAll(millChildren);
@@ -183,32 +171,15 @@ public class MorrisState extends GameStateImpl {
         return children;
     }
 
-    private List<int[]> getAllEmptyPositions() {
-        List<int[]> positions = new ArrayList<>();
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 8; j++) {
-                if (board[i][j] == '.') {
-                    positions.add(new int[]{i, j});
-                }
-            }
-        }
-        return positions;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (!(obj instanceof MorrisState)) return false;
-        MorrisState that = (MorrisState) obj;
-        return whiteRemaining == that.whiteRemaining &&
-                blackRemaining == that.blackRemaining &&
-                whitePiecesOnBoard == that.whitePiecesOnBoard &&
-                blackPiecesOnBoard == that.blackPiecesOnBoard &&
-                flyingPhaseWhite == that.flyingPhaseWhite &&
-                flyingPhaseBlack == that.flyingPhaseBlack &&
-                millFormed == that.millFormed &&
-                isMaximizingTurnNow() == that.isMaximizingTurnNow() &&
-                Arrays.deepEquals(board, that.board);
+    private List<int[]> getAllVoidPositions() {
+        return java.util.stream.IntStream.range(0, 3)
+                .boxed()
+                .flatMap(i ->
+                        java.util.stream.IntStream.range(0, 8)
+                                .filter(j -> board[i][j] == '.')
+                                .mapToObj(j -> new int[]{i, j})
+                )
+                .collect(Collectors.toList());
     }
 
     private List<int[]> getNeighbors(int square, int pos) {
@@ -226,21 +197,15 @@ public class MorrisState extends GameStateImpl {
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(whiteRemaining, blackRemaining, whitePiecesOnBoard, blackPiecesOnBoard, flyingPhaseWhite, flyingPhaseBlack, millFormed, isMaximizingTurnNow());
-        result = 31 * result + Arrays.deepHashCode(board);
-        return result;
+        return Arrays.deepHashCode(board);
     }
 
     public boolean isTerminal() {
         boolean setUpPhaseIsOver = whiteRemaining == 0 && blackRemaining == 0;
-        if (!setUpPhaseIsOver) {
-            return false;
-        }
+        if (!setUpPhaseIsOver) { return false; }
 
         boolean lessThanThreePieces = whitePiecesOnBoard < 3 || blackPiecesOnBoard < 3;
-        if (lessThanThreePieces) {
-            return true;
-        }
+        if (lessThanThreePieces) { return true; }
 
         boolean impossibleTurn = generateChildren().isEmpty();
         return impossibleTurn;
@@ -270,9 +235,9 @@ public class MorrisState extends GameStateImpl {
                 board[0][0] + "--------------" + board[0][1] + "--------------" + board[0][2] + "  1\n" +
                 "a    b    c    d    e    f    g\n" +
                 "\n" +
-                "White pieces remaining: " + whiteRemaining + ", Black remaining: " + blackRemaining + "\n" +
-                "White pieces on board: " + whitePiecesOnBoard + ", Black on board: " + blackPiecesOnBoard + "\n" +
-                "Next turn: " + (isMaximizingTurnNow() ? "White" : "Black") + "\n";
+                "white pieces remaining: " + whiteRemaining + ", black remaining: " + blackRemaining + "\n" +
+                "white pieces on board: " + whitePiecesOnBoard + ", met... on board: " + blackPiecesOnBoard + "\n" +
+                "next turn: " + (isMaximizingTurnNow() ? "white" : "black") + "\n";
         return sb;
     }
 
