@@ -99,21 +99,21 @@ public class MorrisState extends GameStateImpl {
         List<GameState> children = new ArrayList<>();
         char opponent = isMaximizingTurnNow() ? 'B' : 'W';
         boolean nonMillPieceExists = hasNonMillPieces(opponent);
+        IntStream.range(0, 3).forEach(i ->
+                IntStream.range(0, 8)
+                        .filter(j -> board[i][j] == opponent && (!isPartOfMill(i, j) || !nonMillPieceExists))
+                        .forEach(j -> {
+                            MorrisState child = new MorrisState(this);
+                            child.board[i][j] = '.';
+                            if (opponent == 'W') { child.whitePiecesOnBoard--; }
+                            else { child.blackPiecesOnBoard--; }
+                            child.setMoveName(this.getMoveName() + "; Remove opponent's piece at (" + i + ", " + j + ")");
+                            child.setMaximizingTurnNow(!isMaximizingTurnNow());
+                            child.millFormed = false;
+                            children.add(child);
+                        })
+        );
 
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 8; j++) {
-                if (board[i][j] == opponent && (!isPartOfMill(i, j) || !nonMillPieceExists)) {
-                    MorrisState child = new MorrisState(this);
-                    child.board[i][j] = '.';
-                    if (opponent == 'W') { child.whitePiecesOnBoard--; }
-                    else { child.blackPiecesOnBoard--; }
-                    child.setMoveName(this.getMoveName() + "; Remove opponent's piece at (" + i + ", " + j + ")");
-                    child.setMaximizingTurnNow(!isMaximizingTurnNow());
-                    child.millFormed = false;
-                    children.add(child);
-                }
-            }
-        }
         return children;
     }
 

@@ -20,10 +20,8 @@ public class Main {
             List<GameState> children = game.generateChildren();
             boolean validMove = false;
 
-//            System.out.println("Можливі ходи:");
-//            for (GameState child : children) {
-//                System.out.println(child.getMoveName());
-//            }
+            System.out.println("Можливі ходи:");
+            for (GameState child : children) { System.out.println(child.getMoveName()); }
 
             do {
                 move = scanner.nextLine();
